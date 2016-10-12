@@ -6,7 +6,7 @@ __author__ = 'Thomas Methlie'
 __version__ = '0.0.1'
 __date__ = '02/05/2016'
 
-import simplejson
+import json
 import urllib2
 import optparse
 import time
@@ -42,7 +42,6 @@ class CSVLogger():
 
 
 def VTHTTPScanRequest(url, options):
-
     params = [poster.encode.MultipartParam('apikey', VT_API_KEY),
               poster.encode.MultipartParam('url', value=url)]
     datagen, headers = poster.encode.multipart_encode(params)
@@ -60,13 +59,14 @@ def VTHTTPScanRequest(url, options):
         hRequest.close()
     return data, None
 
+
 def File2Strings(filename):
     try:
         f = open(filename, 'r')
     except:
         return None
     try:
-        return map(lambda line:line.rstrip('\n'), f.readlines())
+        return map(lambda line: line.rstrip('\n'), f.readlines())
     except:
         return None
     finally:
@@ -81,32 +81,49 @@ def VirusTotalSubmit(urls, options):
     headers = ('URL', 'Response', 'Message', 'Scan ID', 'Permalink')
     oLogger = CSVLogger('virustotal-submit', headers)
 
-    while urls != []:
-        url = urls[0]
-        urls = urls[1:]
-        jsonResponse, error = VTHTTPScanRequest(url, options)
-        if jsonResponse == None:
-            formats = ('%s', '%s')
-            parameters = (url, error)
-            oLogger.PrintAndLog(formats, parameters)
+    if len(urls) <= 4:
+        print 'less then 4 urls in file, using batch mode' + '\n'
+        urlList = ""
+        for url in urls:
+            urlList = url + '\n'
+            jsonResponse, error = VTHTTPScanRequest(url, options)
+            ResponseParser(jsonResponse, urlList, error)
+    else:
+        print 'More then 4 urls in file, submitting individual urls' + '\n'
+        while urls != []:
+            url = urls[0]
+            urls = urls[1:]
+            jsonResponse, error = VTHTTPScanRequest(url, options)
+            ResponseParser(jsonResponse, url, error)
+            if urls != []:
+                time.sleep(options.delay)
+
+
+def ResponseParser(jsonResponse, url, error):
+    if jsonResponse == None:
+        formats = ('%s', '%s')
+        parameters = (url, error)
+        oLogger.PrintAndLog(formats, parameters)
+    else:
+        oResult = json.loads(jsonResponse)
+        print json.dumps(oResult, indent=4, sort_keys=True)
+        if oResult['response_code'] == 1:
+            formats = ('%s', '%d', '%s', '%s', '%s')
+            parameters = (
+                url, oResult['response_code'], oResult['verbose_msg'], oResult['scan_id'], oResult['permalink'])
         else:
-            oResult = simplejson.loads(jsonResponse)
-            print oResult
-            if oResult['response_code'] == 1:
-                formats = ('%s', '%d', '%s', '%s', '%s')
-                parameters = (url, oResult['response_code'], oResult['verbose_msg'], oResult['scan_id'],  oResult['permalink'])
-            else:
-                formats = ('%s', '%d', '%s')
-                parameters = (url, oResult['response_code'], oResult['verbose_msg'])
-            oLogger.PrintAndLog(formats, parameters)
-        if urls != []:
-            time.sleep(options.delay)
+            formats = ('%s', '%d', '%s')
+            parameters = (url, oResult['response_code'], oResult['verbose_msg'])
+        oLogger.PrintAndLog(formats, parameters)
+
 
 def Main():
     global VT_API_KEY
 
-    oParser = optparse.OptionParser(usage='usage: %prog [options] file\n' + __description__, version='%prog ' + __version__)
-    oParser.add_option('-d', '--delay', type=int, default=16, help='delay in seconds between queries (default 16s, VT rate limit is 4 queries per minute)')
+    oParser = optparse.OptionParser(usage='usage: %prog [options] file\n' + __description__,
+                                    version='%prog ' + __version__)
+    oParser.add_option('-d', '--delay', type=int, default=16,
+                       help='delay in seconds between queries (default 16s, VT rate limit is 4 queries per minute)')
     oParser.add_option('-k', '--key', default='', help='VirusTotal API key')
     oParser.add_option('-f', '--file', help='File contains filenames to submit')
     (options, args) = oParser.parse_args()
@@ -118,12 +135,13 @@ def Main():
     if options.key != '':
         VT_API_KEY = options.key
     if VT_API_KEY == '':
-        print('You need to get a VirusTotal API key and set environment variable VT_API_KEY, use option -k or add it to this program.\nTo get your API key, you need a VirusTotal account.')
+        print(
+        'You need to get a VirusTotal API key and set environment variable VT_API_KEY, use option -k or add it to this program.\nTo get your API key, you need a VirusTotal account.')
     elif options.file:
         VirusTotalSubmit(File2Strings(options.file), options)
     else:
         VirusTotalSubmit(args, options)
 
+
 if __name__ == '__main__':
     Main()
-
