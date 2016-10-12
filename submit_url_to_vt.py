@@ -6,12 +6,13 @@ __author__ = 'Thomas Methlie'
 __version__ = '0.0.1'
 __date__ = '02/05/2016'
 
-import json
+import simplejson
 import urllib2
 import optparse
 import time
 import os
 import poster
+from itertools import izip
 
 VT_SCAN_URL = "https://www.virustotal.com/vtapi/v2/url/scan"
 VT_API_KEY = ''
@@ -85,9 +86,10 @@ def VirusTotalSubmit(urls, options):
         print 'less then 4 urls in file, using batch mode' + '\n'
         urlList = ""
         for url in urls:
-            urlList = url + '\n'
-            jsonResponse, error = VTHTTPScanRequest(url, options)
-            ResponseParser(jsonResponse, urlList, error)
+            urlList += url + '\n'
+
+        jsonResponse, error = VTHTTPScanRequest(urlList, options)
+        ResponseParser(jsonResponse, urls, error)
     else:
         print 'More then 4 urls in file, submitting individual urls' + '\n'
         while urls != []:
@@ -105,16 +107,18 @@ def ResponseParser(jsonResponse, url, error):
         parameters = (url, error)
         oLogger.PrintAndLog(formats, parameters)
     else:
-        oResult = json.loads(jsonResponse)
-        print json.dumps(oResult, indent=4, sort_keys=True)
-        if oResult['response_code'] == 1:
-            formats = ('%s', '%d', '%s', '%s', '%s')
-            parameters = (
-                url, oResult['response_code'], oResult['verbose_msg'], oResult['scan_id'], oResult['permalink'])
-        else:
-            formats = ('%s', '%d', '%s')
-            parameters = (url, oResult['response_code'], oResult['verbose_msg'])
-        oLogger.PrintAndLog(formats, parameters)
+        oResult = simplejson.loads(jsonResponse)
+        print simplejson.dumps(oResult, indent=4, sort_keys=True)
+
+        for oR in oResult:
+            if oR['response_code'] == 1:
+                formats = ('%s', '%d', '%s', '%s', '%s')
+                parameters = (
+                    oR['resource'], oR['response_code'], oR['verbose_msg'], oR['scan_id'], oR['permalink'])
+            else:
+                formats = ('%s', '%d', '%s')
+                parameters = (url, oResult['response_code'], oResult['verbose_msg'])
+            oLogger.PrintAndLog(formats, parameters)
 
 
 def Main():
