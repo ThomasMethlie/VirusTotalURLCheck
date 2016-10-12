@@ -109,7 +109,6 @@ def Main():
     oParser.add_option('-d', '--delay', type=int, default=16, help='delay in seconds between queries (default 16s, VT rate limit is 4 queries per minute)')
     oParser.add_option('-k', '--key', default='', help='VirusTotal API key')
     oParser.add_option('-f', '--file', help='File contains filenames to submit')
-    oParser.add_option('-z', '--zip', action='store_true', default=False, help='Submit the ZIP file, not the content of the ZIP file')
     (options, args) = oParser.parse_args()
 
     if not options.file and len(args) == 0:
